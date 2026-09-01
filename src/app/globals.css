@@ -1,0 +1,90 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&family=Noto+Sans+Kannada:wght@400;600;700&family=Noto+Sans+Malayalam:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Gujarati:wght@400;600;700&family=Noto+Sans+Gurmukhi:wght@400;600;700&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-scale: 1;
+  --bg-primary: #F7F9FC;
+  --bg-card: #FFFFFF;
+  --text-main: #172033;
+  --text-muted: #5A6573;
+  --border-color: #DCE3EB;
+  --primary-blue: #123B66;
+  --secondary-saffron: #E97721;
+}
+
+/* Accessibility Modes */
+html.font-sm { font-size: 14px; }
+html.font-normal { font-size: 16px; }
+html.font-lg { font-size: 18px; }
+
+/* High Contrast Mode */
+html.high-contrast {
+  --bg-primary: #000000 !important;
+  --bg-card: #121212 !important;
+  --text-main: #FFFFFF !important;
+  --text-muted: #E0E0E0 !important;
+  --border-color: #444444 !important;
+  --primary-blue: #38BDF8 !important;
+  --secondary-saffron: #F97316 !important;
+  filter: contrast(115%);
+}
+
+html.high-contrast body {
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+}
+
+html.high-contrast .bg-white,
+html.high-contrast .bg-govBg,
+html.high-contrast .bg-govBlue-50 {
+  background-color: #121212 !important;
+  color: #FFFFFF !important;
+  border-color: #444444 !important;
+}
+
+/* RTL Layout Enhancements for Urdu */
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="rtl"] .space-x-2 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+}
+
+[dir="rtl"] .space-x-4 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+}
+
+body {
+  font-family: 'Poppins', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Kannada', 'Noto Sans Malayalam', 'Noto Sans Bengali', 'Noto Sans Gujarati', 'Noto Sans Gurmukhi', 'Noto Nastaliq Urdu', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Focus styles for WCAG accessibility */
+:focus-visible {
+  outline: 3px solid #E97721 !important;
+  outline-offset: 2px !important;
+}
