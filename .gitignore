@@ -1,2 +1,36 @@
-/.env
-/.env.example
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing & Builds
+/.next/
+/out/
+/build/
+/dist/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database & Upload binaries
+/prisma/*.db
+/prisma/*.db-journal
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# IDE / OS files
+.DS_Store
+*.pem
+.vscode/
+.idea/
+tsconfig.tsbuildinfo
