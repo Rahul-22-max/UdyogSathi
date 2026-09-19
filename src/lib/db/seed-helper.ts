@@ -45,103 +45,206 @@ export async function reconcileInspectorAssignments() {
   }
 }
 
+export async function ensureDemoAccountsExist() {
+  try {
+    const passwordHash = await bcrypt.hash('Password@123', 10);
+    const demoAccounts = [
+      {
+        email: 'applicant@udyogsathi.gov.in',
+        name: 'Vijay Kulkarni',
+        role: 'APPLICANT',
+        mobile: '+91 98220 12345',
+        language: 'en',
+        accessibilityPreferences: { highContrast: false, fontSize: 'normal', reducedMotion: false },
+        isActive: true,
+        isDemoUser: true,
+      },
+      {
+        email: 'officer@udyogsathi.gov.in',
+        name: 'Rajesh Patil (Sub-Regional Officer)',
+        role: 'DEPARTMENT_OFFICER',
+        mobile: '+91 98230 11223',
+        department: 'Maharashtra Pollution Control Board (MPCB)',
+        designation: 'Sub-Regional Scrutiny Officer',
+        isActive: true,
+        isDemoUser: true,
+      },
+      {
+        email: 'inspector@udyogsathi.gov.in',
+        name: 'Anand Shinde',
+        role: 'INSPECTOR',
+        mobile: '+91 98240 99887',
+        department: 'Directorate of Industrial Safety and Health (DISH)',
+        designation: 'Senior Factory Inspector',
+        isActive: true,
+        isDemoUser: true,
+      },
+      {
+        email: 'admin@udyogsathi.gov.in',
+        name: 'Dr. Rahul Charan (State Admin)',
+        role: 'ADMINISTRATOR',
+        mobile: '+91 98110 00001',
+        department: 'Department of Industries & Innovation',
+        designation: 'State Project Director - SIH Portal',
+        isActive: true,
+        isDemoUser: true,
+      },
+    ];
+
+    for (const acc of demoAccounts) {
+      const existing = await UserModel.findOne({ email: acc.email });
+      if (!existing) {
+        await UserModel.create({
+          ...acc,
+          passwordHash,
+        });
+      } else {
+        const matches = await bcrypt.compare('Password@123', existing.passwordHash);
+        if (!matches || !existing.isActive) {
+          existing.passwordHash = passwordHash;
+          existing.isActive = true;
+          await existing.save();
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error('⚠️ Error ensuring demo accounts exist:', err.message);
+  }
+}
+
 export async function ensureDemoDataSeeded() {
   try {
-    const userCount = await UserModel.countDocuments();
-    if (userCount > 0) {
-      // Database already has user records, run reconciliation on existing records
+    await ensureDemoAccountsExist();
+
+    const orgCount = await OrganisationModel.countDocuments();
+    if (orgCount > 0) {
       await reconcileInspectorAssignments();
       return;
     }
 
-    console.log('🌱 No users found in database. Auto-seeding UdyogSathi demo accounts and statutory rules...');
+    console.log('🌱 Auto-seeding UdyogSathi demo accounts, organisations, and statutory rules...');
 
     const passwordHash = await bcrypt.hash('Password@123', 10);
 
     // 1. Users
-    const vijayApplicant = await UserModel.create({
-      email: 'applicant@udyogsathi.gov.in',
-      passwordHash,
-      name: 'Vijay Kulkarni',
-      role: 'APPLICANT',
-      mobile: '+91 98220 12345',
-      language: 'en',
-      accessibilityPreferences: { highContrast: false, fontSize: 'normal', reducedMotion: false },
-      isActive: true,
-      isDemoUser: true,
-    });
+    const vijayApplicant = await UserModel.findOneAndUpdate(
+      { email: 'applicant@udyogsathi.gov.in' },
+      {
+        $setOnInsert: {
+          passwordHash,
+          name: 'Vijay Kulkarni',
+          role: 'APPLICANT',
+          mobile: '+91 98220 12345',
+          language: 'en',
+          accessibilityPreferences: { highContrast: false, fontSize: 'normal', reducedMotion: false },
+          isActive: true,
+          isDemoUser: true,
+        },
+      },
+      { upsert: true, new: true }
+    );
 
-    const cherryApplicant = await UserModel.create({
-      email: 'applicant2@udyogsathi.gov.in',
-      passwordHash,
-      name: 'Cherry Deshmukh',
-      role: 'APPLICANT',
-      mobile: '+91 98220 54321',
-      language: 'mr',
-      accessibilityPreferences: { highContrast: false, fontSize: 'normal', reducedMotion: false },
-      isActive: true,
-      isDemoUser: true,
-    });
+    const cherryApplicant = await UserModel.findOneAndUpdate(
+      { email: 'applicant2@udyogsathi.gov.in' },
+      {
+        $setOnInsert: {
+          passwordHash,
+          name: 'Cherry Deshmukh',
+          role: 'APPLICANT',
+          mobile: '+91 98220 54321',
+          language: 'mr',
+          accessibilityPreferences: { highContrast: false, fontSize: 'normal', reducedMotion: false },
+          isActive: true,
+          isDemoUser: true,
+        },
+      },
+      { upsert: true, new: true }
+    );
 
-    const officerUser = await UserModel.create({
-      email: 'officer@udyogsathi.gov.in',
-      passwordHash,
-      name: 'Rajesh Patil (Sub-Regional Officer)',
-      role: 'DEPARTMENT_OFFICER',
-      mobile: '+91 98230 11223',
-      department: 'Maharashtra Pollution Control Board (MPCB)',
-      designation: 'Sub-Regional Scrutiny Officer',
-      isActive: true,
-      isDemoUser: true,
-    });
+    const officerUser = await UserModel.findOneAndUpdate(
+      { email: 'officer@udyogsathi.gov.in' },
+      {
+        $setOnInsert: {
+          passwordHash,
+          name: 'Rajesh Patil (Sub-Regional Officer)',
+          role: 'DEPARTMENT_OFFICER',
+          mobile: '+91 98230 11223',
+          department: 'Maharashtra Pollution Control Board (MPCB)',
+          designation: 'Sub-Regional Scrutiny Officer',
+          isActive: true,
+          isDemoUser: true,
+        },
+      },
+      { upsert: true, new: true }
+    );
 
-    const officer2User = await UserModel.create({
-      email: 'officer2@udyogsathi.gov.in',
-      passwordHash,
-      name: 'Sanjay More (MIDC Executive Engineer)',
-      role: 'DEPARTMENT_OFFICER',
-      mobile: '+91 98230 44556',
-      department: 'Maharashtra Industrial Development Corporation (MIDC)',
-      designation: 'Executive Engineer',
-      isActive: true,
-      isDemoUser: true,
-    });
+    const officer2User = await UserModel.findOneAndUpdate(
+      { email: 'officer2@udyogsathi.gov.in' },
+      {
+        $setOnInsert: {
+          passwordHash,
+          name: 'Sanjay More (MIDC Executive Engineer)',
+          role: 'DEPARTMENT_OFFICER',
+          mobile: '+91 98230 44556',
+          department: 'Maharashtra Industrial Development Corporation (MIDC)',
+          designation: 'Executive Engineer',
+          isActive: true,
+          isDemoUser: true,
+        },
+      },
+      { upsert: true, new: true }
+    );
 
-    const inspectorUser = await UserModel.create({
-      email: 'inspector@udyogsathi.gov.in',
-      passwordHash,
-      name: 'Anand Shinde',
-      role: 'INSPECTOR',
-      mobile: '+91 98240 99887',
-      department: 'Directorate of Industrial Safety and Health (DISH)',
-      designation: 'Senior Factory Inspector',
-      isActive: true,
-      isDemoUser: true,
-    });
+    const inspectorUser = await UserModel.findOneAndUpdate(
+      { email: 'inspector@udyogsathi.gov.in' },
+      {
+        $setOnInsert: {
+          passwordHash,
+          name: 'Anand Shinde',
+          role: 'INSPECTOR',
+          mobile: '+91 98240 99887',
+          department: 'Directorate of Industrial Safety and Health (DISH)',
+          designation: 'Senior Factory Inspector',
+          isActive: true,
+          isDemoUser: true,
+        },
+      },
+      { upsert: true, new: true }
+    );
 
-    const inspector2User = await UserModel.create({
-      email: 'inspector2@udyogsathi.gov.in',
-      passwordHash,
-      name: 'Priya Joshi',
-      role: 'INSPECTOR',
-      mobile: '+91 98240 77665',
-      department: 'Maharashtra Fire Services',
-      designation: 'Fire Station Inspection Officer',
-      isActive: true,
-      isDemoUser: true,
-    });
+    const inspector2User = await UserModel.findOneAndUpdate(
+      { email: 'inspector2@udyogsathi.gov.in' },
+      {
+        $setOnInsert: {
+          passwordHash,
+          name: 'Priya Joshi',
+          role: 'INSPECTOR',
+          mobile: '+91 98240 77665',
+          department: 'Maharashtra Fire Services',
+          designation: 'Fire Station Inspection Officer',
+          isActive: true,
+          isDemoUser: true,
+        },
+      },
+      { upsert: true, new: true }
+    );
 
-    const adminUser = await UserModel.create({
-      email: 'admin@udyogsathi.gov.in',
-      passwordHash,
-      name: 'Dr. Rahul Charan (State Admin)',
-      role: 'ADMINISTRATOR',
-      mobile: '+91 98110 00001',
-      department: 'Department of Industries & Innovation',
-      designation: 'State Project Director - SIH Portal',
-      isActive: true,
-      isDemoUser: true,
-    });
+    const adminUser = await UserModel.findOneAndUpdate(
+      { email: 'admin@udyogsathi.gov.in' },
+      {
+        $setOnInsert: {
+          passwordHash,
+          name: 'Dr. Rahul Charan (State Admin)',
+          role: 'ADMINISTRATOR',
+          mobile: '+91 98110 00001',
+          department: 'Department of Industries & Innovation',
+          designation: 'State Project Director - SIH Portal',
+          isActive: true,
+          isDemoUser: true,
+        },
+      },
+      { upsert: true, new: true }
+    );
 
     // 2. Organisations
     const orgVijay = await OrganisationModel.create({

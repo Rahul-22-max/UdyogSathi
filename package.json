@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "next lint",
     "seed:mongodb": "tsx scripts/seed-mongodb.ts",
-    "migrate:prisma-to-mongodb": "tsx scripts/migrate-prisma-to-mongodb.ts",
     "db:ensure-indexes": "tsx scripts/ensure-indexes.ts",
     "test:e2e": "tsx scripts/test-e2e-workflow.ts"
   },
@@ -22,6 +21,7 @@
     "mongodb": "^7.6.0",
     "mongoose": "^9.9.5",
     "next": "14.2.15",
+    "punycode": "^2.3.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.13.0",

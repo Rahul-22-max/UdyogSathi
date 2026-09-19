@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 
-const SECRET_KEY = process.env.SESSION_SECRET || 'udyogsathi_sih_2026_super_secret_hmac_key_99812';
+const SECRET_KEY = process.env.SESSION_SECRET || process.env.JWT_SECRET || 'udyogsathi_sih_2026_super_secret_hmac_key_99812';
 
 export interface AuthSessionPayload {
   userId: string;

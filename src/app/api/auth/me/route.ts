@@ -13,7 +13,9 @@ export async function GET() {
     }
 
     try {
-      const user = JSON.parse(sessionCookie.value);
+      const raw = sessionCookie.value;
+      const decoded = raw.startsWith('%7B') || raw.startsWith('%7b') ? decodeURIComponent(raw) : raw;
+      const user = JSON.parse(decoded);
       return NextResponse.json({ authenticated: true, user }, { status: 200 });
     } catch {
       return NextResponse.json({ authenticated: false, user: null }, { status: 200 });

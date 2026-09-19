@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 
 import { ensureDemoDataSeeded } from '@/lib/db/seed-helper';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/udyogsathi';
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URL || 'mongodb://127.0.0.1:27017/udyogsathi';
 
 declare global {
   var mongooseCache:
@@ -41,9 +41,7 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
       try {
         const conn = await mongoose.connect(MONGODB_URI, opts);
         console.log('Connected to MongoDB successfully via Mongoose');
-        if (!isProduction) {
-          await ensureDemoDataSeeded();
-        }
+        await ensureDemoDataSeeded();
         return conn;
       } catch (err: any) {
         // STRICT PRODUCTION SAFETY GUARD: Never use MongoMemoryServer in production
