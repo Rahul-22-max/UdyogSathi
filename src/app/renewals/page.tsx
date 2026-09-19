@@ -8,11 +8,13 @@ import { Footer } from '@/components/layout/Footer';
 import { DisclaimerBanner } from '@/components/common/DisclaimerBanner';
 import { Badge } from '@/components/ui/Badge';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { JourneyStepper } from '@/components/journey/JourneyStepper';
+import { useAuth } from '@/context/AuthContext';
+import { normalizeRole } from '@/lib/rbac';
 import { ROUTES } from '@/lib/routes';
 import { Clock, ShieldCheck, CheckCircle2, RefreshCw, Layers, ArrowRight } from 'lucide-react';
 
 export default function RenewalsPage() {
+  const { currentUser } = useAuth();
   const [currentLang, setCurrentLang] = useState('en');
 
   const renewals = [
@@ -56,10 +58,6 @@ export default function RenewalsPage() {
                 Automated 30/60/90 day expiry tracking with 1-click verified vault document pre-filling.
               </p>
             </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-govBorder shadow-sm">
-            <JourneyStepper activeStep={8} lang={currentLang} />
           </div>
 
           <div className="space-y-4">

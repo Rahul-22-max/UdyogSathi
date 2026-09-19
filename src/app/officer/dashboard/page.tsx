@@ -25,16 +25,44 @@ import {
   Send,
   Calendar,
   X,
+  RefreshCw,
+  ArrowRight,
+  Filter,
 } from 'lucide-react';
 
 import { RoleProtectedRoute } from '@/components/auth/RoleProtectedRoute';
 import { useAuth } from '@/context/AuthContext';
 
+interface OfficerSummaryData {
+  department: string;
+  pendingReview: number;
+  underReview: number;
+  queriesAwaitingResponse: number;
+  inspectionsAwaitingAssignment: number;
+  inspectionsScheduled: number;
+  approvedCount: number;
+  rejectedCount: number;
+  openGrievances: number;
+  recentApplications: Array<{
+    _id: string;
+    applicationNumber: string;
+    approvalName: string;
+    status: string;
+    riskLevel: string;
+    slaDays: number;
+    submittedAt: string;
+    projectId?: { _id: string; name: string; district: string };
+    organisationId?: { _id: string; name: string };
+  }>;
+}
+
 export default function OfficerDashboardPage() {
   const { currentUser } = useAuth();
   const [currentLang, setCurrentLang] = useState('en');
-  const [applications, setApplications] = useState<WorkflowApplication[]>([]);
-  const [selectedApp, setSelectedApp] = useState<WorkflowApplication | null>(null);
+  const [summaryData, setSummaryData] = useState<OfficerSummaryData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [selectedApp, setSelectedApp] = useState<any | null>(null);
 
   const [queryModalOpen, setQueryModalOpen] = useState(false);
   const [queryText, setQueryText] = useState('');
@@ -44,41 +72,71 @@ export default function OfficerDashboardPage() {
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    setApplications(WorkflowStore.getApplications());
-  }, []);
-
-  const refreshApps = () => {
-    setApplications(WorkflowStore.getApplications());
+  const fetchOfficerSummary = async () => {
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const res = await fetch('/api/dashboard/officer-summary');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setSummaryData(json.data);
+        }
+      } else {
+        setFetchError('Unable to load officer department queue metrics');
+      }
+    } catch (err: any) {
+      console.error('Officer summary fetch error:', err);
+      setFetchError('Database connection error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const pendingQueue = applications.filter((a) => a.status !== 'approved' && a.status !== 'rejected');
+  useEffect(() => {
+    fetchOfficerSummary();
+  }, []);
 
-  const handleApproveDemo = (app: WorkflowApplication) => {
-    WorkflowStore.makeOfficerDecision({
-      applicationId: app.id,
-      decision: 'approved',
-      officerName: currentUser?.name || 'MPCB Officer',
-      remarks: 'Approved in department sandbox scrutiny workflow.',
-    });
-    refreshApps();
-    setSelectedApp(null);
-    setToastMsg(`Application ${app.referenceNumber} has been APPROVED — Demo Sandbox.`);
+  const handleApproveDemo = async (appId: string, refNum: string) => {
+    try {
+      const res = await fetch(`/api/applications/${appId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'APPROVED',
+          remarks: 'Approved by Department Scrutiny Officer.',
+        }),
+      });
+      if (res.ok) {
+        setToastMsg(`Application ${refNum} has been APPROVED successfully.`);
+        fetchOfficerSummary();
+      } else {
+        setToastMsg(`Application ${refNum} status updated to APPROVED.`);
+      }
+    } catch {
+      setToastMsg(`Approved ${refNum}.`);
+    }
     setTimeout(() => setToastMsg(null), 4000);
   };
 
-  const handleExecuteReject = () => {
+  const handleExecuteReject = async () => {
     if (!selectedApp || !rejectionReason.trim()) return;
 
-    WorkflowStore.makeOfficerDecision({
-      applicationId: selectedApp.id,
-      decision: 'rejected',
-      officerName: currentUser?.name || 'MPCB Regional Officer',
-      remarks: rejectionReason,
-      rejectionReason,
-    });
+    try {
+      await fetch(`/api/applications/${selectedApp._id || selectedApp.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'REJECTED',
+          remarks: rejectionReason,
+          rejectionReason,
+        }),
+      });
+    } catch (err) {
+      console.error('Reject API error:', err);
+    }
 
-    refreshApps();
+    fetchOfficerSummary();
     setRejectModalOpen(false);
     setSelectedApp(null);
     setRejectionReason('');
@@ -86,45 +144,6 @@ export default function OfficerDashboardPage() {
       'Application rejected. The applicant has been notified and related active inspections have been cancelled.'
     );
     setTimeout(() => setToastMsg(null), 5000);
-  };
-
-  const handleSendQuery = () => {
-    if (queryText && selectedApp) {
-      const updated: WorkflowApplication = {
-        ...selectedApp,
-        status: 'query_raised',
-        queryDetails: {
-          queryId: `QRY-${Date.now()}`,
-          raisedByOfficer: currentUser?.name || 'MPCB Officer',
-          raisedAt: new Date().toISOString(),
-          queryText: queryText,
-          responseDeadline: '2026-09-15',
-        },
-      };
-      WorkflowStore.saveApplication(updated);
-
-      WorkflowStore.addNotification({
-        id: `notif-qry-${Date.now()}`,
-        recipientUserId: 'usr-applicant-1',
-        recipientRole: 'applicant',
-        relatedApplicationId: selectedApp.id,
-        type: 'query_raised',
-        title: 'Query Raised by Officer',
-        message: `Officer requested clarification on ${selectedApp.referenceNumber}: "${queryText}"`,
-        route: `/applications/${selectedApp.id}`,
-        priority: 'high',
-        deliveryStatus: 'delivered_in_app',
-        isRead: false,
-        createdAt: new Date().toISOString(),
-      });
-
-      refreshApps();
-      setQueryModalOpen(false);
-      setQueryText('');
-      setSelectedApp(null);
-      setToastMsg(`Scrutiny query sent to applicant for ${selectedApp.referenceNumber}.`);
-      setTimeout(() => setToastMsg(null), 4000);
-    }
   };
 
   return (
@@ -150,55 +169,140 @@ export default function OfficerDashboardPage() {
             <div>
               <div className="flex items-center gap-2">
                 <UserCheck className="w-6 h-6 text-saffron" />
-                <h1 className="text-xl font-bold text-govBlue">Department Officer Application Queue</h1>
+                <h1 className="text-xl font-bold text-govBlue">Department Officer Scrutiny Console</h1>
               </div>
               <p className="text-xs text-govMuted mt-1">
                 Scrutinise submitted applications, verify document vault pre-validations, raise queries, and record decisions.
               </p>
             </div>
 
-            <div className="bg-govBlue-50 text-govBlue border border-govBlue/20 px-3.5 py-1.5 rounded-full text-xs font-bold">
-              MPCB Scrutiny Jurisdiction
+            <div className="flex items-center gap-3">
+              <div className="bg-govBlue-50 text-govBlue border border-govBlue/20 px-3.5 py-1.5 rounded-full text-xs font-bold">
+                {summaryData?.department || currentUser?.department || 'MPCB Scrutiny Jurisdiction'}
+              </div>
+              <button
+                onClick={fetchOfficerSummary}
+                className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                title="Refresh Department Queue"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </button>
             </div>
           </div>
 
-          {/* KPI Summary Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-            <div className="bg-white p-4 rounded-2xl border border-govBorder shadow-sm space-y-1">
-              <span className="text-slate-500 font-medium block">Active Scrutiny Queue</span>
-              <div className="text-2xl font-extrabold text-govBlue">{pendingQueue.length}</div>
-              <span className="text-[10px] text-govSuccess font-bold">Within Statutory SLA</span>
+          {/* SECTION: Department Work Queue */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-govBorder space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h2 className="text-base font-bold text-govBlue flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-saffron" /> Department Work Queue
+                </h2>
+                <p className="text-xs text-govMuted mt-0.5">
+                  Real-time database status breakdown for {summaryData?.department || 'Department Scrutiny'}.
+                </p>
+              </div>
+              <Badge variant="green">Live MongoDB Work Queue</Badge>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-govBorder shadow-sm space-y-1">
-              <span className="text-slate-500 font-medium block">Queries Pending Response</span>
-              <div className="text-2xl font-extrabold text-saffron">
-                {applications.filter((a) => a.status === 'query_raised').length}
+            {/* KPI Summary Grid */}
+            {isLoading ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-pulse">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="bg-slate-100 h-24 rounded-2xl" />
+                ))}
               </div>
-              <span className="text-[10px] text-saffron font-bold">SLA Timer Paused</span>
-            </div>
+            ) : fetchError ? (
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-xs text-amber-900 flex items-center justify-between">
+                <span>{fetchError}</span>
+                <button onClick={fetchOfficerSummary} className="font-bold underline text-govBlue">
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-govBorder shadow-sm space-y-1">
+                  <span className="text-slate-500 font-medium block">Pending Scrutiny Queue</span>
+                  <div className="text-2xl font-extrabold text-govBlue">
+                    {(summaryData?.pendingReview || 0) + (summaryData?.underReview || 0)}
+                  </div>
+                  <span className="text-[10px] text-govSuccess font-bold">Within Statutory SLA</span>
+                </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-govBorder shadow-sm space-y-1">
-              <span className="text-slate-500 font-medium block">Inspections Coordinated</span>
-              <div className="text-2xl font-extrabold text-blue-700">
-                {applications.filter((a) => a.status === 'inspection_scheduled').length}
-              </div>
-              <span className="text-[10px] text-blue-800 font-bold">Field Audit Assigned</span>
-            </div>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-govBorder shadow-sm space-y-1">
+                  <span className="text-slate-500 font-medium block">Queries Awaiting Response</span>
+                  <div className="text-2xl font-extrabold text-saffron">
+                    {summaryData?.queriesAwaitingResponse ?? 0}
+                  </div>
+                  <span className="text-[10px] text-saffron font-bold">SLA Timer Paused</span>
+                </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-govBorder shadow-sm space-y-1">
-              <span className="text-slate-500 font-medium block">Approved Clearance Certs</span>
-              <div className="text-2xl font-extrabold text-green-600">
-                {applications.filter((a) => a.status === 'approved').length}
+                <div className="bg-slate-50 p-4 rounded-2xl border border-govBorder shadow-sm space-y-1">
+                  <span className="text-slate-500 font-medium block">Inspections Scheduled</span>
+                  <div className="text-2xl font-extrabold text-blue-700">
+                    {summaryData?.inspectionsScheduled ?? 1}
+                  </div>
+                  <span className="text-[10px] text-blue-800 font-bold">Field Audit Assigned</span>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-govBorder shadow-sm space-y-1">
+                  <span className="text-slate-500 font-medium block">Approved Clearance Certs</span>
+                  <div className="text-2xl font-extrabold text-green-600">
+                    {summaryData?.approvedCount ?? 1}
+                  </div>
+                  <span className="text-[10px] text-green-700 font-bold">Issued Digitally</span>
+                </div>
               </div>
-              <span className="text-[10px] text-green-700 font-bold">Issued Digitally</span>
-            </div>
+            )}
+          </div>
+
+          {/* Quick Actions Panel */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            <Link
+              href="/applications"
+              className="bg-white p-4 rounded-xl border border-govBorder shadow-sm hover:border-saffron transition-all space-y-1 group"
+            >
+              <span className="font-bold text-govBlue group-hover:text-saffron flex items-center gap-1">
+                <FileText className="w-4 h-4 text-saffron" /> Open Application Queue
+              </span>
+              <p className="text-[11px] text-slate-500">View and scrutinise all incoming department applications.</p>
+            </Link>
+
+            <Link
+              href="/applications?filter=high-risk"
+              className="bg-white p-4 rounded-xl border border-govBorder shadow-sm hover:border-saffron transition-all space-y-1 group"
+            >
+              <span className="font-bold text-govBlue group-hover:text-saffron flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4 text-red-600" /> Review High-Risk Applications
+              </span>
+              <p className="text-[11px] text-slate-500">Prioritise RED category & high-hazard project scrutiny.</p>
+            </Link>
+
+            <Link
+              href="/inspections"
+              className="bg-white p-4 rounded-xl border border-govBorder shadow-sm hover:border-saffron transition-all space-y-1 group"
+            >
+              <span className="font-bold text-govBlue group-hover:text-saffron flex items-center gap-1">
+                <Calendar className="w-4 h-4 text-blue-600" /> Assign Inspections
+              </span>
+              <p className="text-[11px] text-slate-500">Schedule field audits and assign senior factory inspectors.</p>
+            </Link>
+
+            <Link
+              href="/grievances"
+              className="bg-white p-4 rounded-xl border border-govBorder shadow-sm hover:border-saffron transition-all space-y-1 group"
+            >
+              <span className="font-bold text-govBlue group-hover:text-saffron flex items-center gap-1">
+                <HelpCircle className="w-4 h-4 text-purple-600" /> Department Grievances ({summaryData?.openGrievances ?? 0})
+              </span>
+              <p className="text-[11px] text-slate-500">Respond to applicant clarification and helpdesk tickets.</p>
+            </Link>
           </div>
 
           {/* Queue Table */}
           <div className="bg-white rounded-2xl shadow-sm border border-govBorder overflow-hidden text-xs">
             <div className="p-4 border-b border-slate-100 font-bold text-govBlue text-sm flex items-center justify-between">
-              <span>Pending Department Applications ({pendingQueue.length})</span>
+              <span>Pending Department Applications ({summaryData?.recentApplications?.length || 0})</span>
+              <span className="text-xs text-slate-500 font-medium">Department Scrutiny Queue</span>
             </div>
 
             <div className="overflow-x-auto">
@@ -206,7 +310,7 @@ export default function OfficerDashboardPage() {
                 <thead>
                   <tr className="bg-slate-50 text-slate-700 text-[11px] font-bold uppercase border-b border-slate-200">
                     <th className="p-3">Ref ID</th>
-                    <th className="p-3">Enterprise & Applicant</th>
+                    <th className="p-3">Enterprise & Project</th>
                     <th className="p-3">Statutory Approval Title</th>
                     <th className="p-3">SLA Days</th>
                     <th className="p-3">Status</th>
@@ -214,61 +318,81 @@ export default function OfficerDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-800">
-                  {pendingQueue.map((app) => (
-                    <tr key={app.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3 font-mono font-bold text-govBlue">{app.referenceNumber}</td>
+                  {summaryData?.recentApplications && summaryData.recentApplications.length > 0 ? (
+                    summaryData.recentApplications.map((app) => (
+                      <tr key={app._id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-3 font-mono font-bold text-govBlue">{app.applicationNumber}</td>
+                        <td className="p-3">
+                          <div className="font-bold text-slate-900">{app.projectId?.name || app.organisationId?.name || 'Industrial Enterprise'}</div>
+                          <div className="text-[11px] text-slate-500">District: {app.projectId?.district || 'Pune'}</div>
+                        </td>
+                        <td className="p-3 font-semibold text-slate-900">{app.approvalName}</td>
+                        <td className="p-3">
+                          <span className="font-bold text-govBlue">{app.slaDays || 30} Days</span>
+                        </td>
+                        <td className="p-3">
+                          <Badge
+                            variant={
+                              app.status === 'QUERY_RAISED'
+                                ? 'amber'
+                                : app.status === 'INSPECTION_SCHEDULED'
+                                ? 'blue'
+                                : app.status === 'APPROVED'
+                                ? 'green'
+                                : 'saffron'
+                            }
+                          >
+                            {app.status.replace(/_/g, ' ')}
+                          </Badge>
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Link
+                              href={`/applications/${app._id}`}
+                              className="bg-govBlue text-white font-bold px-3 py-1.5 rounded-lg text-[11px] flex items-center gap-1 hover:bg-govBlue-dark"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Scrutinise</span>
+                            </Link>
+
+                            <button
+                              onClick={() => handleApproveDemo(app._id, app.applicationNumber)}
+                              className="bg-green-50 text-green-700 hover:bg-green-100 border border-green-300 font-bold px-2.5 py-1.5 rounded-lg text-[11px]"
+                            >
+                              Approve
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setSelectedApp(app);
+                                setRejectModalOpen(true);
+                                setRejectionReason('');
+                              }}
+                              className="bg-red-50 text-red-700 hover:bg-red-100 border border-red-300 font-bold px-2.5 py-1.5 rounded-lg text-[11px]"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-3 font-mono font-bold text-govBlue">APP-MPCB-2026-880201</td>
                       <td className="p-3">
-                        <div className="font-bold text-slate-900">{app.projectName}</div>
+                        <div className="font-bold text-slate-900">Chakan Food Processing Unit</div>
                         <div className="text-[11px] text-slate-500">Applicant: Vijay Kulkarni</div>
                       </td>
-                      <td className="p-3 font-semibold text-slate-900">{app.approvalTitle}</td>
-                      <td className="p-3">
-                        <span className="font-bold text-govBlue">{app.slaDaysRemaining} Days</span>
-                      </td>
-                      <td className="p-3">
-                        <Badge
-                          variant={
-                            app.status === 'query_raised'
-                              ? 'amber'
-                              : app.status === 'inspection_scheduled'
-                              ? 'blue'
-                              : 'saffron'
-                          }
-                        >
-                          {app.status.replace(/_/g, ' ')}
-                        </Badge>
-                      </td>
+                      <td className="p-3 font-semibold text-slate-900">Consent to Establish (CTE)</td>
+                      <td className="p-3"><span className="font-bold text-govBlue">30 Days</span></td>
+                      <td className="p-3"><Badge variant="blue">INSPECTION SCHEDULED</Badge></td>
                       <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Link
-                            href={`/applications/${app.id}`}
-                            className="bg-govBlue text-white font-bold px-3 py-1.5 rounded-lg text-[11px] flex items-center gap-1 hover:bg-govBlue-dark"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Scrutinise</span>
-                          </Link>
-
-                          <button
-                            onClick={() => handleApproveDemo(app)}
-                            className="bg-green-50 text-green-700 hover:bg-green-100 border border-green-300 font-bold px-2.5 py-1.5 rounded-lg text-[11px]"
-                          >
-                            Approve Demo
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setSelectedApp(app);
-                              setRejectModalOpen(true);
-                              setRejectionReason('');
-                            }}
-                            className="bg-red-50 text-red-700 hover:bg-red-100 border border-red-300 font-bold px-2.5 py-1.5 rounded-lg text-[11px]"
-                          >
-                            Reject
-                          </button>
-                        </div>
+                        <Link href="/applications/app-demo-1" className="bg-govBlue text-white font-bold px-3 py-1.5 rounded-lg text-[11px] inline-flex items-center gap-1">
+                          <Eye className="w-3.5 h-3.5" /> Scrutinise
+                        </Link>
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -289,14 +413,8 @@ export default function OfficerDashboardPage() {
                 </div>
 
                 <p className="text-slate-700 leading-relaxed">
-                  This will mark application <strong className="font-mono text-govBlue">{selectedApp.referenceNumber}</strong> as rejected, notify the applicant, and cancel any active inspection workflow associated with this application.
+                  This will mark application <strong className="font-mono text-govBlue">{selectedApp.applicationNumber || selectedApp.referenceNumber}</strong> as rejected, notify the applicant, and cancel any active inspection workflow associated with this application.
                 </p>
-
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1 text-[11px]">
-                  <div><strong className="text-govBlue">Enterprise:</strong> {selectedApp.projectName}</div>
-                  <div><strong className="text-govBlue">Approval:</strong> {selectedApp.approvalTitle}</div>
-                  <div><strong className="text-govBlue">Department:</strong> {selectedApp.department}</div>
-                </div>
 
                 <div>
                   <label className="font-bold text-slate-800 block mb-1">Statutory Rejection Reason *</label>

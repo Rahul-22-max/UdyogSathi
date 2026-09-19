@@ -1,13 +1,17 @@
-import { prisma } from './prisma';
+if (typeof window !== 'undefined') {
+  throw new Error('Server-only module');
+}
+import { connectToDatabase } from '@/lib/db/mongoose';
+import { ApprovalRuleModel, IApprovalRule } from '@/lib/models/approval-rule.model';
 import { WizardInput, ApprovalChecklistItem, RiskLevel } from '@/types';
 
 export async function generateApprovalChecklist(input: WizardInput): Promise<ApprovalChecklistItem[]> {
   try {
-    // 1. Fetch rules from database
-    const dbRules = await prisma.approvalRule.findMany({
-      where: { isActive: true },
-      orderBy: { priority: 'asc' },
-    });
+    await connectToDatabase();
+    // Fetch active rules from MongoDB
+    const dbRules: IApprovalRule[] = await ApprovalRuleModel.find({ isActive: true })
+      .sort({ priority: 1 })
+      .lean<IApprovalRule[]>();
 
     const checklist: ApprovalChecklistItem[] = [];
 
@@ -55,22 +59,26 @@ export async function generateApprovalChecklist(input: WizardInput): Promise<App
       }
 
       if (isApplicable) {
-        let reqDocs: string[] = [];
-        let deps: string[] = [];
-
-        try {
-          reqDocs = JSON.parse(rule.requiredDocs);
-        } catch {
-          reqDocs = ['Business Registration Proof', 'Project Plan'];
+        let reqDocs: string[] = Array.isArray(rule.requiredDocs) ? rule.requiredDocs : [];
+        if (typeof rule.requiredDocs === 'string') {
+          try {
+            reqDocs = JSON.parse(rule.requiredDocs);
+          } catch {
+            reqDocs = ['Business Registration Proof', 'Project Plan'];
+          }
         }
 
-        try {
-          deps = rule.dependencies ? JSON.parse(rule.dependencies) : [];
-        } catch {
-          deps = [];
+        let deps: string[] = Array.isArray(rule.dependencies) ? rule.dependencies : [];
+        if (typeof rule.dependencies === 'string') {
+          try {
+            deps = JSON.parse(rule.dependencies);
+          } catch {
+            deps = [];
+          }
         }
 
         const requiresInsp =
+          rule.requiresInspection ||
           rule.department.includes('MPCB') ||
           rule.department.includes('DISH') ||
           rule.department.includes('Safety') ||
@@ -92,7 +100,7 @@ export async function generateApprovalChecklist(input: WizardInput): Promise<App
           indicativeFee: `₹${(Math.floor(Math.random() * 8) + 2) * 1000} (Demo SLA)`,
           status: 'NOT_STARTED',
           nextAction: 'Upload Required Documents in Vault',
-          sourceRef: rule.sourceRef || 'Maharashtra Industry Regulation Guidelines',
+          sourceRef: rule.sourceReference || rule.sourceRef || 'Maharashtra Industry Regulation Guidelines',
           requiresInspection: requiresInsp,
           inspectionStage: requiresInsp ? 'before_decision' : 'not_required',
         });
@@ -121,7 +129,6 @@ export async function generateApprovalChecklist(input: WizardInput): Promise<App
     return checklist;
   } catch (error) {
     console.error('Error generating checklist:', error);
-    // Return robust deterministic default rules for presentation
     return [
       {
         ruleId: 'RULE_MPCB_CTE',

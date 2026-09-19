@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { JourneyStepper } from '@/components/journey/JourneyStepper';
+import { useAuth } from '@/context/AuthContext';
+import { normalizeRole } from '@/lib/rbac';
 import {
   DEMO_VIJAY_PROJECT,
   DEMO_VIJAY_APPLICATIONS,
@@ -46,7 +48,6 @@ import {
 import { getTranslation } from '@/lib/i18n';
 
 import { WorkflowStore } from '@/lib/workflow-store';
-import { useAuth } from '@/context/AuthContext';
 
 export default function ProjectWorkspacePage() {
   const params = useParams();
@@ -220,9 +221,11 @@ export default function ProjectWorkspacePage() {
           </div>
 
           {/* 8-Step Visual Stepper */}
-          <div className="bg-white p-5 rounded-2xl border border-govBorder shadow-sm">
-            <JourneyStepper activeStep={project.currentStageNumber} lang={currentLang} />
-          </div>
+          {normalizeRole(currentUser?.role) === 'applicant' && (
+            <div className="bg-white p-5 rounded-2xl border border-govBorder shadow-sm">
+              <JourneyStepper activeStep={project.currentStageNumber} lang={currentLang} />
+            </div>
+          )}
 
           {/* Toast Notification Banner */}
           {toastMsg && (

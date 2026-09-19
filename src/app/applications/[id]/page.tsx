@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { TopUtilityBar } from '@/components/layout/TopUtilityBar';
@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { JourneyStepper } from '@/components/journey/JourneyStepper';
+import { useAuth } from '@/context/AuthContext';
+import { normalizeRole } from '@/lib/rbac';
 import {
   DEMO_VIJAY_APPLICATIONS,
   DEMO_VIJAY_PROJECT,
@@ -23,6 +25,7 @@ import {
   Clock,
   ShieldCheck,
   CheckCircle2,
+  XCircle,
   AlertTriangle,
   MessageSquareWarning,
   SearchCheck,
@@ -38,7 +41,6 @@ import {
   X,
 } from 'lucide-react';
 import { WorkflowStore } from '@/lib/workflow-store';
-import { useAuth } from '@/context/AuthContext';
 
 export default function ApplicationScrutinyWorkspacePage() {
   const params = useParams();
@@ -59,6 +61,51 @@ export default function ApplicationScrutinyWorkspacePage() {
     return WorkflowStore.getApplicationById(appId as string, userEmail, userRole) || DEMO_VIJAY_APPLICATIONS[1];
   });
   const [vaultDocs] = useState<VaultDocument[]>(DEMO_VIJAY_VAULT_DOCUMENTS);
+
+  const [dbInspection, setDbInspection] = useState<{
+    _id?: string;
+    inspectionReference?: string;
+    status?: string;
+    inspectionResult?: string;
+    recommendation?: string;
+    reportSummary?: string;
+    submittedAt?: string;
+    scheduledDate?: string;
+    inspectorName?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    async function fetchAppData() {
+      try {
+        const res = await fetch(`/api/applications/${appId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.application) {
+            const app = json.application;
+            if (app.inspections && app.inspections.length > 0) {
+              const insp = app.inspections[0];
+              setDbInspection({
+                _id: insp._id || insp.id,
+                inspectionReference: insp.inspectionReference,
+                status: insp.status,
+                inspectionResult: insp.inspectionResult,
+                recommendation: insp.recommendation,
+                reportSummary: insp.reportSummary,
+                submittedAt: insp.submittedAt || insp.completedAt,
+                scheduledDate: insp.scheduledDate,
+                inspectorName: insp.inspectorName,
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching application/inspection details:', err);
+      }
+    }
+    if (appId) {
+      fetchAppData();
+    }
+  }, [appId]);
 
   // Success toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -423,7 +470,9 @@ export default function ApplicationScrutinyWorkspacePage() {
             </div>
 
             {/* Application Progress Stepper */}
-            <JourneyStepper activeStep={5} lang={currentLang} compact />
+            {normalizeRole(currentUser?.role) === 'applicant' && (
+              <JourneyStepper activeStep={5} lang={currentLang} compact />
+            )}
           </div>
 
           {/* 1-CLICK VERIFIED DOCUMENT REUSE BANNER (For Applicants on Ready / Draft apps) */}
@@ -556,6 +605,131 @@ export default function ApplicationScrutinyWorkspacePage() {
                 <strong className="block text-slate-900 mb-1 font-bold text-xs">Official Scrutiny Remarks:</strong>
                 {appState.decisionDetails.remarks}
               </div>
+            </div>
+          )}
+
+          {/* INSPECTION & APPROVAL UPDATES PANEL */}
+          {(dbInspection || appState.inspectionDetails) && (
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-govBorder space-y-4 text-xs">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-saffron" />
+                  <div>
+                    <h3 className="font-bold text-govBlue text-sm">Inspection & Approval Updates</h3>
+                    <p className="text-slate-500 text-[11px]">
+                      Official site audit results, statutory inspector recommendation, and workflow status.
+                    </p>
+                  </div>
+                </div>
+                <Badge
+                  variant={
+                    (dbInspection?.inspectionResult || appState.inspectionDetails?.status) === 'PASSED' ||
+                    (dbInspection?.status === 'COMPLETED' && dbInspection?.inspectionResult === 'PASSED')
+                      ? 'green'
+                      : (dbInspection?.inspectionResult || appState.inspectionDetails?.status) === 'FAILED'
+                      ? 'red'
+                      : 'amber'
+                  }
+                >
+                  {dbInspection?.status === 'COMPLETED'
+                    ? 'Inspection Completed'
+                    : appState.inspectionDetails?.status
+                    ? appState.inspectionDetails.status.toUpperCase()
+                    : 'Inspection Scheduled'}
+                </Badge>
+              </div>
+
+              {dbInspection?.status === 'COMPLETED' || dbInspection?.inspectionResult ? (
+                /* Completed Inspection Outcomes */
+                <div className="space-y-4">
+                  <div
+                    className={`p-4 rounded-xl border flex items-center justify-between gap-3 font-semibold ${
+                      dbInspection.inspectionResult === 'PASSED'
+                        ? 'bg-green-50 border-green-300 text-green-950'
+                        : dbInspection.inspectionResult === 'FAILED'
+                        ? 'bg-red-50 border-red-300 text-red-950'
+                        : 'bg-amber-50 border-amber-300 text-amber-950'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {dbInspection.inspectionResult === 'PASSED' ? (
+                        <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+                      ) : dbInspection.inspectionResult === 'FAILED' ? (
+                        <XCircle className="w-5 h-5 text-red-600 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                      )}
+                      <div>
+                        <span className="font-extrabold text-sm block">
+                          {dbInspection.inspectionResult === 'PASSED'
+                            ? '✓ Inspection Passed'
+                            : dbInspection.inspectionResult === 'FAILED'
+                            ? '✕ Inspection Failed'
+                            : '! Correction Required'}
+                        </span>
+                        <span className="text-[11px] opacity-90">
+                          Inspector Recommendation:{' '}
+                          {dbInspection.recommendation === 'RECOMMEND_APPROVAL'
+                            ? 'Recommend Approval'
+                            : dbInspection.recommendation === 'RECOMMEND_REJECTION'
+                            ? 'Recommend Rejection'
+                            : 'Require Clarification'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold uppercase block text-slate-500">Workflow Status</span>
+                      <span className="font-extrabold text-xs text-govBlue">Awaiting Department Decision</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div>
+                      <span className="text-[11px] text-slate-500 font-medium block">Inspection Reference:</span>
+                      <span className="font-mono font-bold text-govBlue">{dbInspection.inspectionReference || 'INSP-2026-901'}</span>
+                    </div>
+
+                    <div>
+                      <span className="text-[11px] text-slate-500 font-medium block">Submitted Timestamp:</span>
+                      <span className="font-bold text-slate-800">
+                        {dbInspection.submittedAt
+                          ? new Date(dbInspection.submittedAt).toLocaleString()
+                          : 'Recently Submitted'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[11px] text-slate-500 font-medium block">Current Application Status:</span>
+                      <span className="font-bold text-blue-700">Awaiting Department Decision</span>
+                    </div>
+                  </div>
+
+                  {dbInspection.reportSummary && (
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-1">
+                      <strong className="text-govBlue font-bold text-xs block">Inspector Remarks & Findings:</strong>
+                      <p className="text-slate-800 leading-relaxed text-xs">{dbInspection.reportSummary}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Pending / Scheduled Inspection Details */
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="font-bold text-slate-900">
+                      {appState.inspectionDetails?.inspectorName || dbInspection?.inspectorName || 'Senior DISH Inspector'}
+                    </div>
+                    <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-saffron" />
+                      <span>
+                        Scheduled for {appState.inspectionDetails?.scheduledDate || dbInspection?.scheduledDate || '11 Sep 2026'} at{' '}
+                        {appState.inspectionDetails?.scheduledTime || '11:30 AM'}
+                      </span>
+                    </div>
+                  </div>
+                  <Badge variant="blue">Scheduled Site Audit</Badge>
+                </div>
+              )}
             </div>
           )}
 

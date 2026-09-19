@@ -10,7 +10,7 @@ import { DisclaimerBanner } from '@/components/common/DisclaimerBanner';
 import { Button } from '@/components/ui/Button';
 import { Shield, Lock, Mail, ArrowRight, CheckCircle2, User, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { getRoleDashboardPath } from '@/lib/rbac';
+import { getRoleDashboardPath, normalizeRole, getSafeAuthorizedReturnTo } from '@/lib/rbac';
 
 function LoginForm() {
   const [email, setEmail] = useState('applicant@udyogsathi.gov.in');
@@ -30,16 +30,20 @@ function LoginForm() {
 
     try {
       const user = await signIn(email, password);
+      const normRole = normalizeRole(user.role);
 
-      // Validate returnTo path to ensure it's a safe internal relative URL
-      if (user.role === 'APPLICANT' && !user.onboardingCompleted) {
+      console.log(`[auth] login success: email=${user.email} rawRole=${user.role} normalizedRole=${normRole}`);
+
+      if (normRole === 'applicant' && !user.onboardingCompleted) {
         const dest = returnTo && returnTo.startsWith('/onboarding') ? returnTo : '/onboarding';
-        router.push(dest);
-      } else if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
-        router.push(returnTo);
+        router.replace(dest);
       } else {
-        const dest = getRoleDashboardPath(user.role);
-        router.push(dest);
+        const dest = getSafeAuthorizedReturnTo({
+          returnTo,
+          roleInput: user.role,
+        });
+        console.log(`[auth] post-login destination: ${dest}`);
+        router.replace(dest);
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Invalid email or password.');

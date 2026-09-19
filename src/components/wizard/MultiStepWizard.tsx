@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { WizardInput, ApprovalChecklistItem } from '@/types';
-import { generateApprovalChecklist } from '@/lib/rule-engine';
 import { exportApprovalChecklistPDF } from '@/lib/export-utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -214,7 +213,13 @@ export const MultiStepWizard: React.FC = () => {
   const handleGenerateChecklist = async () => {
     setIsSubmitting(true);
     try {
-      const generated = await generateApprovalChecklist(formData);
+      const res = await fetch('/api/wizard/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+      const generated = data.checklist || [];
       setChecklist(generated);
       setStep(5);
 

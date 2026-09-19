@@ -9,11 +9,14 @@ import { DisclaimerBanner } from '@/components/common/DisclaimerBanner';
 import { Badge } from '@/components/ui/Badge';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { JourneyStepper } from '@/components/journey/JourneyStepper';
+import { useAuth } from '@/context/AuthContext';
+import { normalizeRole } from '@/lib/rbac';
 import { generateICSCalendarFile } from '@/lib/export-utils';
 import { ROUTES } from '@/lib/routes';
 import { CalendarDays, Download, Clock, AlertTriangle, CheckCircle2, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function ComplianceCalendarPage() {
+  const { currentUser } = useAuth();
   const [currentLang, setCurrentLang] = useState('en');
 
   const complianceItems = [
@@ -81,9 +84,11 @@ export default function ComplianceCalendarPage() {
             </Link>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-govBorder shadow-sm">
-            <JourneyStepper activeStep={8} lang={currentLang} />
-          </div>
+          {normalizeRole(currentUser?.role) === 'applicant' && (
+            <div className="bg-white p-5 rounded-2xl border border-govBorder shadow-sm">
+              <JourneyStepper activeStep={8} lang={currentLang} />
+            </div>
+          )}
 
           <div className="space-y-4">
             {complianceItems.map((item) => (

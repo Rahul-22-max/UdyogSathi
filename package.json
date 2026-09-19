@@ -1,5 +1,5 @@
 {
-  "name": "udyogsathi-ai",
+  "name": "udyogsathi",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -7,21 +7,25 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "prisma:generate": "prisma generate",
-    "prisma:db:push": "prisma db push",
-    "seed": "node --loader ts-node/register prisma/seed.ts"
+    "seed:mongodb": "tsx scripts/seed-mongodb.ts",
+    "migrate:prisma-to-mongodb": "tsx scripts/migrate-prisma-to-mongodb.ts",
+    "db:ensure-indexes": "tsx scripts/ensure-indexes.ts",
+    "test:e2e": "tsx scripts/test-e2e-workflow.ts"
   },
   "dependencies": {
-    "@prisma/client": "^5.21.1",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",
+    "dotenv": "^16.4.5",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.3",
     "lucide-react": "^0.453.0",
+    "mongodb": "^7.6.0",
+    "mongoose": "^9.9.5",
     "next": "14.2.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.13.0",
+    "server-only": "^0.0.1",
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.5.4",
     "zod": "^3.23.8"
@@ -34,10 +38,11 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.15",
+    "mongodb-memory-server": "^11.2.0",
     "postcss": "^8.4.47",
-    "prisma": "^5.21.1",
     "tailwindcss": "^3.4.14",
     "ts-node": "^10.9.2",
+    "tsx": "^4.23.13",
     "typescript": "^5.6.3"
   }
 }

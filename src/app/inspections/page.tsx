@@ -13,6 +13,7 @@ import { WorkflowStore, InspectionItem } from '@/lib/workflow-store';
 import { SearchCheck, Calendar, MapPin, Camera, AlertTriangle, Shield, CheckCircle2, ArrowRight, XCircle } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
+import { normalizeRole } from '@/lib/rbac';
 
 export default function InspectionsPage() {
   const { currentUser } = useAuth();
@@ -56,9 +57,11 @@ export default function InspectionsPage() {
           </div>
 
           {/* Stepper */}
-          <div className="bg-white p-5 rounded-2xl border border-govBorder shadow-sm">
-            <JourneyStepper activeStep={6} lang={currentLang} />
-          </div>
+          {normalizeRole(currentUser?.role) === 'applicant' && (
+            <div className="bg-white p-5 rounded-2xl border border-govBorder shadow-sm">
+              <JourneyStepper activeStep={6} lang={currentLang} />
+            </div>
+          )}
 
           {/* Active vs Cancelled Inspection Tabs */}
           <div className="flex items-center gap-3 border-b border-govBorder pb-2 text-xs">

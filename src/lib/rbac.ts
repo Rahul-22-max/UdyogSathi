@@ -20,10 +20,15 @@ const ROLE_ALIASES: Record<string, NormalizedRole> = {
 
   inspector: 'inspector',
   factory_inspector: 'inspector',
+  field_inspector: 'inspector',
+  field_inspection_officer: 'inspector',
+  fieldinspectionofficer: 'inspector',
+  inspection_officer: 'inspector',
 
   admin: 'administrator',
   administrator: 'administrator',
   superadmin: 'administrator',
+  state_administrator: 'administrator',
 };
 
 /**
@@ -47,8 +52,8 @@ export function normalizeRole(roleInput?: string | null): NormalizedRole {
   }
 
   if (clean.includes('admin')) return 'administrator';
-  if (clean.includes('officer') || clean.includes('department')) return 'department_officer';
   if (clean.includes('inspector') || clean.includes('factory')) return 'inspector';
+  if (clean.includes('officer') || clean.includes('department')) return 'department_officer';
   if (clean.includes('applicant') || clean.includes('entrepreneur') || clean.includes('user')) return 'applicant';
 
   return 'guest';
@@ -320,4 +325,60 @@ export function getRoleDashboardPath(roleInput?: string | null): string {
     default:
       return '/';
   }
+}
+
+/**
+ * Security: Validates if a target route path is permitted for a normalized role
+ */
+export function isRouteAllowedForRole(targetPath: string, roleInput?: string | null): boolean {
+  if (!targetPath || !targetPath.startsWith('/') || targetPath.startsWith('//')) {
+    return false;
+  }
+
+  const role = normalizeRole(roleInput);
+  if (role === 'administrator') return true;
+
+  if (targetPath.startsWith('/admin')) {
+    return false;
+  }
+
+  if (targetPath.startsWith('/officer')) {
+    return role === 'department_officer';
+  }
+
+  if (targetPath.startsWith('/inspector')) {
+    return role === 'inspector';
+  }
+
+  if (targetPath.startsWith('/dashboard') || targetPath.startsWith('/onboarding') || targetPath.startsWith('/projects') || targetPath.startsWith('/vault')) {
+    return role === 'applicant';
+  }
+
+  return true;
+}
+
+/**
+ * Returns a safe, role-authorized returnTo destination path, falling back to the role dashboard
+ */
+export function getSafeAuthorizedReturnTo({
+  returnTo,
+  roleInput,
+  fallback,
+}: {
+  returnTo?: string | null;
+  roleInput?: string | null;
+  fallback?: string;
+}): string {
+  const defaultDashboard = getRoleDashboardPath(roleInput);
+  const targetFallback = fallback || defaultDashboard;
+
+  if (!returnTo || !returnTo.startsWith('/') || returnTo.startsWith('//')) {
+    return targetFallback;
+  }
+
+  if (!isRouteAllowedForRole(returnTo, roleInput)) {
+    return targetFallback;
+  }
+
+  return returnTo;
 }

@@ -2,8 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { normalizeRole } from '@/lib/rbac';
 import { getTranslation } from '@/lib/i18n';
 import { ROUTES } from '@/lib/routes';
 import {
@@ -127,7 +128,32 @@ export const JourneyStepper: React.FC<JourneyStepperProps> = ({
   showDescriptions = true,
 }) => {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const pathname = usePathname();
+  const { currentUser, isAuthenticated } = useAuth();
+  const role = currentUser ? normalizeRole(currentUser.role) : 'guest';
+
+  // Strict Route Visibility Gate:
+  // Exclude rendering on /grievances, /renewals, /complaints and their subroutes.
+  const isExcludedRoute = Boolean(
+    pathname &&
+      (pathname === '/grievances' ||
+        pathname.startsWith('/grievances/') ||
+        pathname === '/renewals' ||
+        pathname.startsWith('/renewals/') ||
+        pathname === '/complaints' ||
+        pathname.startsWith('/complaints/'))
+  );
+
+  if (isExcludedRoute) {
+    return null;
+  }
+
+  // Strict Role Visibility Gate:
+  // The 8-step applicant journey MUST NOT be rendered for Officer, Inspector, or Admin roles.
+  // It remains visible for Applicants, and for unauthenticated guests on public pages.
+  if (isAuthenticated && role !== 'applicant') {
+    return null;
+  }
 
   const handleStepClick = (step: JourneyStepInfo, e: React.MouseEvent) => {
     if (!isAuthenticated) {

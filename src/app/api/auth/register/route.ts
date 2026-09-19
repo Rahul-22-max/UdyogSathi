@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     return response;
   } catch (error: any) {
     console.error('Registration error:', error);
-    if (error.code === 'P2002') {
+    if (error.code === 11000 || error.code === 'P2002') {
       return NextResponse.json({ error: 'Account with this email already exists.' }, { status: 400 });
     }
     return NextResponse.json({ error: 'Registration failed.' }, { status: 500 });
