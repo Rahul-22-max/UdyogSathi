@@ -6,7 +6,9 @@ import mongoose from 'mongoose';
 
 import { ensureDemoDataSeeded } from '@/lib/db/seed-helper';
 
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URL || 'mongodb://127.0.0.1:27017/udyogsathi';
+function getMongoUri(): string {
+  return process.env.MONGODB_URI || process.env.MONGODB_URL || 'mongodb://127.0.0.1:27017/udyogsathi';
+}
 
 declare global {
   var mongooseCache:
@@ -32,6 +34,7 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
 
   if (!cached.promise) {
     const isProduction = process.env.NODE_ENV === 'production';
+    const mongoUri = getMongoUri();
     const opts = {
       dbName: process.env.MONGODB_DB_NAME || 'udyogsathi',
       serverSelectionTimeoutMS: 5000,
@@ -39,9 +42,13 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
 
     cached.promise = (async () => {
       try {
-        const conn = await mongoose.connect(MONGODB_URI, opts);
-        console.log('Connected to MongoDB successfully via Mongoose');
-        await ensureDemoDataSeeded();
+        const conn = await mongoose.connect(mongoUri, opts);
+        console.log(`[db] Connected to MongoDB database '${conn.connection.db?.databaseName || opts.dbName}' successfully`);
+        try {
+          await ensureDemoDataSeeded();
+        } catch (seedErr: any) {
+          console.warn('[db] Seed helper warning (non-fatal):', seedErr.message);
+        }
         return conn;
       } catch (err: any) {
         // STRICT PRODUCTION SAFETY GUARD: Never use MongoMemoryServer in production

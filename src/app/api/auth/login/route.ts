@@ -10,7 +10,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email and password are required.' }, { status: 400 });
     }
 
-    const session = await authenticateUser(email, password);
+    let session;
+    try {
+      session = await authenticateUser(email, password);
+    } catch (authErr: any) {
+      console.error('[auth-diag] CRITICAL: Database connection error during login request:', authErr?.message || authErr);
+      return NextResponse.json(
+        { error: 'Database connection failed. Please ensure MONGODB_URI environment variable is configured in Vercel.' },
+        { status: 500 }
+      );
+    }
 
     if (!session) {
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
@@ -28,8 +37,8 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch (error) {
-    console.error('Login API error:', error);
+  } catch (error: any) {
+    console.error('[auth-diag] Login API unexpected error:', error?.message || error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

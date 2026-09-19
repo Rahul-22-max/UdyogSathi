@@ -141,7 +141,7 @@ export async function ensureDemoDataSeeded() {
           isDemoUser: true,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     const cherryApplicant = await UserModel.findOneAndUpdate(
@@ -158,7 +158,7 @@ export async function ensureDemoDataSeeded() {
           isDemoUser: true,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     const officerUser = await UserModel.findOneAndUpdate(
@@ -175,7 +175,7 @@ export async function ensureDemoDataSeeded() {
           isDemoUser: true,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     const officer2User = await UserModel.findOneAndUpdate(
@@ -192,7 +192,7 @@ export async function ensureDemoDataSeeded() {
           isDemoUser: true,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     const inspectorUser = await UserModel.findOneAndUpdate(
@@ -209,7 +209,7 @@ export async function ensureDemoDataSeeded() {
           isDemoUser: true,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     const inspector2User = await UserModel.findOneAndUpdate(
@@ -226,7 +226,7 @@ export async function ensureDemoDataSeeded() {
           isDemoUser: true,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     const adminUser = await UserModel.findOneAndUpdate(
@@ -243,7 +243,7 @@ export async function ensureDemoDataSeeded() {
           isDemoUser: true,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     // 2. Organisations

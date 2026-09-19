@@ -7,53 +7,49 @@ import { connectToDatabase } from '@/lib/db/mongoose';
 import { UserModel } from '@/lib/models/user.model';
 
 export async function authenticateUser(email: string, passwordPlain: string): Promise<UserSession | null> {
-  try {
-    const conn = await connectToDatabase();
-    console.log('[auth] MongoDB connected');
-    console.log('[auth] Database name:', conn.connection.db?.databaseName || 'udyogsathi');
+  const normalizedEmail = email.toLowerCase().trim();
+  console.log(`[auth-diag] User lookup attempted for normalized email: '${normalizedEmail}'`);
 
-    const normalizedEmail = email.toLowerCase().trim();
-    console.log('[auth] User lookup attempted for normalized email:', normalizedEmail);
+  const conn = await connectToDatabase();
+  const dbName = conn.connection.db?.databaseName || process.env.MONGODB_DB_NAME || 'udyogsathi';
+  console.log(`[auth-diag] Connected to MongoDB database: '${dbName}'`);
 
-    const user = await UserModel.findOne({ email: normalizedEmail }).exec();
+  const user = await UserModel.findOne({ email: normalizedEmail }).exec();
 
-    console.log('[auth] User found:', !!user);
-    if (!user) {
-      return null;
-    }
-
-    console.log('[auth] User active:', user.isActive ?? true);
-    if (user.isActive === false) {
-      return null;
-    }
-
-    const isValidPassword = await bcrypt.compare(passwordPlain, user.passwordHash);
-    console.log('[auth] Password comparison result:', isValidPassword);
-
-    if (!isValidPassword) {
-      return null;
-    }
-
-    console.log('[auth] Session creation: success');
-
-    return {
-      id: user._id.toString(),
-      email: user.email,
-      name: user.name,
-      role: user.role as UserRole,
-      mobile: user.mobile || undefined,
-      language: user.language || 'en',
-      highContrast: user.accessibilityPreferences?.highContrast || false,
-      fontSize: user.accessibilityPreferences?.fontSize || 'normal',
-      department: user.department || undefined,
-      designation: user.designation || undefined,
-      onboardingCompleted: true,
-      onboardingStatus: 'completed',
-    };
-  } catch (error) {
-    console.error('Authentication error:', error);
+  if (!user) {
+    console.warn(`[auth-diag] User NOT found in collection 'users' for email: '${normalizedEmail}'`);
     return null;
   }
+
+  console.log(`[auth-diag] User found: id=${user._id}, email=${user.email}, role=${user.role}, isActive=${user.isActive}`);
+  if (user.isActive === false) {
+    console.warn(`[auth-diag] User account is deactivated for email: '${normalizedEmail}'`);
+    return null;
+  }
+
+  const isValidPassword = await bcrypt.compare(passwordPlain, user.passwordHash);
+  console.log(`[auth-diag] Password comparison result for '${normalizedEmail}': ${isValidPassword}`);
+
+  if (!isValidPassword) {
+    return null;
+  }
+
+  console.log(`[auth-diag] Session authentication SUCCESS for '${normalizedEmail}' (role=${user.role})`);
+
+  return {
+    id: user._id.toString(),
+    email: user.email,
+    name: user.name,
+    role: user.role as UserRole,
+    mobile: user.mobile || undefined,
+    language: user.language || 'en',
+    highContrast: user.accessibilityPreferences?.highContrast || false,
+    fontSize: user.accessibilityPreferences?.fontSize || 'normal',
+    department: user.department || undefined,
+    designation: user.designation || undefined,
+    onboardingCompleted: true,
+    onboardingStatus: 'completed',
+  };
 }
 
 export async function registerUser(data: {
